@@ -6,6 +6,7 @@
 
     <groupId>io.jenkins.blueocean</groupId>
     <artifactId>blueocean-test-ssh-server</artifactId>
+    <name>Blue Ocean Test SSH Server</name>
     <version>1.3.0-beta-1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
