@@ -5,7 +5,7 @@
     <groupId>io.jenkins.blueocean</groupId>
     <artifactId>blueocean-test-ssh-server</artifactId>
     <name>Blue Ocean Test SSH Server</name>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.0.2</version>
     <packaging>jar</packaging>
 
     <url>http://jenkins.io/blueocean</url>
@@ -18,7 +18,7 @@
         <connection>scm:git:https://github.com/jenkinsci/blueocean-test-ssh-server.git</connection>
         <developerConnection>scm:git:git@github.com:jenkinsci/blueocean-test-ssh-server.git</developerConnection>
         <url>https://github.com/jenkinsci/blueocean-test-ssh-server</url>
-        <tag>HEAD</tag>
+        <tag>blueocean-test-ssh-server-0.0.2</tag>
     </scm>
 
     <developers>
