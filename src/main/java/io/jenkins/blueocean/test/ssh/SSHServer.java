@@ -51,7 +51,7 @@ public class SSHServer {
 
     /**
      * @param cwd             directory to use as root for serving files
-     * @param authorizedUsers a list of username -> ssh public keys to allow
+     * @param authorizedUsers a list of username -&gt; ssh public keys to allow
      */
     public SSHServer(final File cwd, final Map<String, String> authorizedUsers) {
         this(cwd, null, 0, false, authorizedUsers);
@@ -62,7 +62,7 @@ public class SSHServer {
      * @param keyFile         an RSA private key file, or null to generate a new one
      * @param port            port to run the ssh server on, 0 to
      * @param allowLocalUser  allows the local user based on ~/.ssh/id_rsa.pub
-     * @param authorizedUsers a list of username -> ssh public keys to allow
+     * @param authorizedUsers a list of username -&gt; ssh public keys to allow
      */
     public SSHServer(final File cwd, final File keyFile, final int port, final boolean allowLocalUser, final Map<String, String> authorizedUsers) {
         // Set up sshd defaults, bind go IPv4 and random non-privileged port
@@ -185,8 +185,8 @@ public class SSHServer {
 
     /**
      * Reads an SSH-style private key and provides the encoded public key portion
-     * @param privateKey
-     * @return
+     * @param privateKey private key to read
+     * @return corresponding public key with 'auto@generated' comment
      */
     public static String getPublicKey(String privateKey) {
         try {
