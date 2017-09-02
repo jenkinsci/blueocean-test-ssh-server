@@ -1,6 +1,7 @@
 package io.jenkins.blueocean.test.ssh;
 
 import com.google.common.collect.ImmutableList;
+import com.jcraft.jsch.JSch;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.sshd.common.NamedFactory;
 import org.apache.sshd.common.PropertyResolverUtils;
@@ -27,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
+import java.nio.charset.Charset;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.security.PublicKey;
@@ -38,11 +40,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
+/**
+ * Simple wrapper that sets up Apache SSHD and allows it to be shaded to use
+ * in Jenkins plugin unit tests
+ */
 public class SSHServer {
     private static final Logger logger = Logger.getLogger(SSHShell.class.getName());
 
     private final SshServer sshd;
 
+    /**
+     * @param cwd             directory to use as root for serving files
+     * @param authorizedUsers a list of username -> ssh public keys to allow
+     */
+    public SSHServer(final File cwd, final Map<String, String> authorizedUsers) {
+        this(cwd, null, 0, false, authorizedUsers);
+    }
+
+    /**
+     * @param cwd             directory to use as root for serving files
+     * @param keyFile         an RSA private key file, or null to generate a new one
+     * @param port            port to run the ssh server on, 0 to
+     * @param allowLocalUser  allows the local user based on ~/.ssh/id_rsa.pub
+     * @param authorizedUsers a list of username -> ssh public keys to allow
+     */
     public SSHServer(final File cwd, final File keyFile, final int port, final boolean allowLocalUser, final Map<String, String> authorizedUsers) {
         // Set up sshd defaults, bind go IPv4 and random non-privileged port
         sshd = SshServer.setUpDefaultServer();
@@ -50,7 +71,9 @@ public class SSHServer {
         sshd.setPort(port);
 
         // Set up an RSA host key
-        AbstractGeneratorHostKeyProvider hostKeyProvider = new SimpleGeneratorHostKeyProvider(keyFile);
+        AbstractGeneratorHostKeyProvider hostKeyProvider = keyFile == null ?
+            new SimpleGeneratorHostKeyProvider() :
+            new SimpleGeneratorHostKeyProvider(keyFile);
         hostKeyProvider.setAlgorithm("RSA");
         sshd.setKeyPairProvider(hostKeyProvider);
 
@@ -73,17 +96,20 @@ public class SSHServer {
             @Override
             public boolean authenticate(String username, PublicKey key, ServerSession session) {
                 try {
-                    byte[] incoming = encodePublicKey((RSAPublicKey)key);
+                    byte[] incoming = encodePublicKey((RSAPublicKey) key);
                     String incomingHex = Base64.encodeBase64String(incoming);
                     if (allowLocalUser) {
                         File localPublicKey = new File(System.getProperty("user.home") + "/.ssh/id_rsa.pub");
-                        if(localPublicKey.canRead() && new String(Files.readAllBytes(localPublicKey.toPath()), "utf-8").contains(incomingHex)) {
+                        if (localPublicKey.canRead() && new String(Files.readAllBytes(localPublicKey.toPath()), "utf-8").contains(incomingHex)) {
                             return true;
                         }
                     }
                     if (authorizedUsers.containsKey(username)) {
                         String userPublicKey = authorizedUsers.get(username);
                         logger.fine(" ---- Authentication request for: " + username + " with key: " + incomingHex + " user's public key is: " + userPublicKey);
+                        if (userPublicKey != null && userPublicKey.contains(" ")) {
+                            userPublicKey = userPublicKey.split("\\s")[1];
+                        }
                         return userPublicKey == null || incomingHex.equals(userPublicKey);
                     }
                     return false;
@@ -142,7 +168,41 @@ public class SSHServer {
     }
 
     /**
+     * Utility to generate an SSH-style private key
+     * @return encoded private key
+     */
+    public static String generatePrivateKey() {
+        try {
+            JSch jsch = new JSch();
+            com.jcraft.jsch.KeyPair pair = com.jcraft.jsch.KeyPair.genKeyPair(jsch, com.jcraft.jsch.KeyPair.RSA, 2048);
+            ByteArrayOutputStream keyOut = new ByteArrayOutputStream();
+            pair.writePrivateKey(keyOut);
+            return new String(keyOut.toByteArray(), "utf-8");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Reads an SSH-style private key and provides the encoded public key portion
+     * @param privateKey
+     * @return
+     */
+    public static String getPublicKey(String privateKey) {
+        try {
+            JSch jsch = new JSch();
+            com.jcraft.jsch.KeyPair pair = com.jcraft.jsch.KeyPair.load(jsch, privateKey.getBytes("utf-8"), null);
+            ByteArrayOutputStream keyOut = new ByteArrayOutputStream();
+            pair.writePublicKey(keyOut, "auto@generated");
+            return new String(keyOut.toByteArray(), "utf-8");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
      * Encodes the public key according to some spec somewhere
+     *
      * @param key public key to use
      * @return the ssh-rsa bytes
      */
@@ -150,7 +210,7 @@ public class SSHServer {
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             /* encode the "ssh-rsa" string */
-            byte[] sshrsa = new byte[] { 0, 0, 0, 7, 's', 's', 'h', '-', 'r', 's', 'a' };
+            byte[] sshrsa = new byte[]{0, 0, 0, 7, 's', 's', 'h', '-', 'r', 's', 'a'};
             out.write(sshrsa);
             /* Encode the public exponent */
             BigInteger e = key.getPublicExponent();

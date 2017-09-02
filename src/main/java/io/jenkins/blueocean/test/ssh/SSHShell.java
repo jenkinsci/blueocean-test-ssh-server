@@ -33,6 +33,7 @@ class SSHShell extends AbstractLoggingBean implements InvertedShell, ServerSessi
     private TtyFilterInputStream out;
     private TtyFilterInputStream err;
     private final boolean interactive;
+    private int exitValue;
 
     public SSHShell(File cwd, boolean interactive, List<String> command) {
         this.command = new ArrayList<>(ValidateUtils.checkNotNullAndNotEmpty(command, "No process shell command(s)"));
@@ -134,7 +135,7 @@ class SSHShell extends AbstractLoggingBean implements InvertedShell, ServerSessi
                 throw new RuntimeException(var2);
             }
         } else {
-            return this.process.exitValue();
+            return this.exitValue;
         }
     }
 
@@ -142,6 +143,7 @@ class SSHShell extends AbstractLoggingBean implements InvertedShell, ServerSessi
         if (this.process != null) {
             this.log.debug("Destroy process for " + this.cmdValue);
             this.process.destroy();
+            this.exitValue = this.process.exitValue();
             this.process = null;
         }
 

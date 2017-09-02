@@ -111,6 +111,10 @@
                                     <pattern>org.apache</pattern>
                                     <shadedPattern>io.jenkins.blueocean.test.ssh.org.apache</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>com.jcraft</pattern>
+                                    <shadedPattern>io.jenkins.blueocean.test.ssh.com.jcraft</shadedPattern>
+                                </relocation>
                             </relocations>
                             <transformers>
                                 <transformer
@@ -156,11 +160,22 @@
             <artifactId>commons-codec</artifactId>
             <version>1.10</version>
         </dependency>
+        <dependency>
+            <groupId>com.jcraft</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.1.53</version>
+        </dependency>
 
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.8.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+            <version>1.7.7</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
