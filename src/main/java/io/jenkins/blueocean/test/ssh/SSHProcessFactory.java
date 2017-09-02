@@ -11,19 +11,23 @@ import org.apache.sshd.server.shell.InvertedShellWrapper;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Logger;
 
 class SSHProcessFactory implements Factory<Command> {
+    private final Logger log;
     private final List<String> command;
     private final File cwd;
     private final boolean interactive;
 
-    public SSHProcessFactory(File cwd, List<String> command) {
+    public SSHProcessFactory(Logger log, File cwd, List<String> command) {
+        this.log = log;
         this.command = ValidateUtils.checkNotNullAndNotEmpty(command, "No command");
         this.cwd = cwd;
         interactive = false;
     }
 
-    public SSHProcessFactory(File cwd) {
+    public SSHProcessFactory(Logger log, File cwd) {
+        this.log = log;
         this.command = OsUtils.resolveDefaultInteractiveCommand();
         this.cwd = cwd;
         interactive = true;
@@ -43,7 +47,7 @@ class SSHProcessFactory implements Factory<Command> {
     }
 
     private InvertedShell createInvertedShell() {
-        return new SSHShell(cwd, interactive, this.resolveEffectiveCommand(this.getCommand()));
+        return new SSHShell(log, cwd, interactive, this.resolveEffectiveCommand(this.getCommand()));
     }
 
     private List<String> resolveEffectiveCommand(List<String> original) {

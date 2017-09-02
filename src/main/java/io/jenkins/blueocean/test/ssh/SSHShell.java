@@ -1,11 +1,11 @@
 package io.jenkins.blueocean.test.ssh;
 
+import io.jenkins.blueocean.test.ssh.command.AsynchronousCommand;
 import org.apache.sshd.common.channel.PtyMode;
 import org.apache.sshd.common.util.GenericUtils;
 import org.apache.sshd.common.util.OsUtils;
 import org.apache.sshd.common.util.ValidateUtils;
 import org.apache.sshd.common.util.io.IoUtils;
-import org.apache.sshd.common.util.logging.AbstractLoggingBean;
 import org.apache.sshd.server.Environment;
 import org.apache.sshd.server.channel.PuttyRequestHandler;
 import org.apache.sshd.server.session.ServerSession;
@@ -18,12 +18,18 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-class SSHShell extends AbstractLoggingBean implements InvertedShell, ServerSessionHolder {
+class SSHShell implements InvertedShell, ServerSessionHolder {
+    private final Logger log;
     private final List<String> command;
     private final File cwd;
     private String cmdValue;
@@ -35,7 +41,8 @@ class SSHShell extends AbstractLoggingBean implements InvertedShell, ServerSessi
     private final boolean interactive;
     private int exitValue;
 
-    public SSHShell(File cwd, boolean interactive, List<String> command) {
+    public SSHShell(Logger log, File cwd, boolean interactive, List<String> command) {
+        this.log = log;
         this.command = new ArrayList<>(ValidateUtils.checkNotNullAndNotEmpty(command, "No process shell command(s)"));
         this.cmdValue = GenericUtils.join(command, ' ');
         this.cwd = cwd;
@@ -51,8 +58,7 @@ class SSHShell extends AbstractLoggingBean implements InvertedShell, ServerSessi
         ValidateUtils.checkTrue(this.process == null, "Session set after process started");
     }
 
-    @SuppressWarnings("unchecked")
-    public void start(Environment env) throws IOException {
+    public void start(final Environment env) throws IOException {
         Map<String, String> varsMap = this.resolveShellEnvironment(env.getEnv());
 
         for(int i = 0; i < this.command.size(); ++i) {
@@ -72,16 +78,12 @@ class SSHShell extends AbstractLoggingBean implements InvertedShell, ServerSessi
                 modes = builder.environment();
                 modes.putAll(varsMap);
             } catch (Exception var5) {
-                this.log.warn("start() - Failed ({}) to set environment for command={}: {}", var5.getClass().getSimpleName(), this.cmdValue, var5.getMessage());
-                if (this.log.isDebugEnabled()) {
-                    this.log.debug("start(" + this.cmdValue + ") failure details", var5);
-                }
+                this.log.warning("start() - Failed (" + var5.getClass().getSimpleName() + ") to set environment for command=" + this.cmdValue + ": " + var5.getMessage());
+                this.log.log(Level.FINEST, "start(" + this.cmdValue + ") failure details", var5);
             }
         }
 
-        if (this.log.isDebugEnabled()) {
-            this.log.debug("Starting shell with command: '{}' and env: {}", builder.command(), builder.environment());
-        }
+        this.log.fine("Starting shell with command: '" + builder.command() + "' and env: " + builder.environment());
 
         this.process = builder.start();
         modes = this.resolveShellTtyOptions(env.getPtyModes());
@@ -141,7 +143,7 @@ class SSHShell extends AbstractLoggingBean implements InvertedShell, ServerSessi
 
     public void destroy() {
         if (this.process != null) {
-            this.log.debug("Destroy process for " + this.cmdValue);
+            this.log.fine("Destroy process for " + this.cmdValue);
             this.process.destroy();
             this.exitValue = this.process.exitValue();
             this.process = null;
@@ -149,14 +151,9 @@ class SSHShell extends AbstractLoggingBean implements InvertedShell, ServerSessi
 
         IOException e = IoUtils.closeQuietly(this.getInputStream(), this.getOutputStream(), this.getErrorStream());
         if (e != null) {
-            if (this.log.isDebugEnabled()) {
-                this.log.debug(e.getClass().getSimpleName() + " while destroy streams of '" + this + "': " + e.getMessage());
-            }
-
-            if (this.log.isTraceEnabled()) {
-                for (Throwable t : e.getSuppressed()) {
-                    this.log.trace("Suppressed " + t.getClass().getSimpleName() + ") while destroy streams of '" + this + "': " + t.getMessage());
-                }
+            this.log.fine(e.getClass().getSimpleName() + " while destroy streams of '" + this + "': " + e.getMessage());
+            for (Throwable t : e.getSuppressed()) {
+                this.log.fine("Suppressed " + t.getClass().getSimpleName() + ") while destroy streams of '" + this + "': " + t.getMessage());
             }
         }
 

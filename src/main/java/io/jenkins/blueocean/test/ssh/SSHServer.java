@@ -2,6 +2,8 @@ package io.jenkins.blueocean.test.ssh;
 
 import com.google.common.collect.ImmutableList;
 import com.jcraft.jsch.JSch;
+import io.jenkins.blueocean.test.ssh.command.ReceivePackCommand;
+import io.jenkins.blueocean.test.ssh.command.UploadPackCommand;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.sshd.common.NamedFactory;
 import org.apache.sshd.common.PropertyResolverUtils;
@@ -21,6 +23,7 @@ import org.apache.sshd.server.keyprovider.AbstractGeneratorHostKeyProvider;
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider;
 import org.apache.sshd.server.scp.ScpCommandFactory;
 import org.apache.sshd.server.session.ServerSession;
+import org.apache.sshd.server.shell.InvertedShellWrapper;
 import org.apache.sshd.server.subsystem.sftp.SftpSubsystemFactory;
 
 import java.io.ByteArrayOutputStream;
@@ -28,7 +31,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
-import java.nio.charset.Charset;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.security.PublicKey;
@@ -38,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -45,7 +48,7 @@ import java.util.logging.Logger;
  * in Jenkins plugin unit tests
  */
 public class SSHServer {
-    private static final Logger logger = Logger.getLogger(SSHShell.class.getName());
+    private static final Logger log = Logger.getLogger(SSHServer.class.getName());
 
     private final SshServer sshd;
 
@@ -65,6 +68,17 @@ public class SSHServer {
      * @param authorizedUsers a list of username -&gt; ssh public keys to allow
      */
     public SSHServer(final File cwd, final File keyFile, final int port, final boolean allowLocalUser, final Map<String, String> authorizedUsers) {
+        this(cwd, keyFile, port, allowLocalUser, authorizedUsers, false);
+    }
+
+        /**
+         * @param cwd             directory to use as root for serving files
+         * @param keyFile         an RSA private key file, or null to generate a new one
+         * @param port            port to run the ssh server on, 0 to
+         * @param allowLocalUser  allows the local user based on ~/.ssh/id_rsa.pub
+         * @param authorizedUsers a list of username -&gt; ssh public keys to allow
+         */
+    public SSHServer(final File cwd, final File keyFile, final int port, final boolean allowLocalUser, final Map<String, String> authorizedUsers, boolean logAll) {
         // Set up sshd defaults, bind go IPv4 and random non-privileged port
         sshd = SshServer.setUpDefaultServer();
         sshd.setHost("0.0.0.0");
@@ -83,7 +97,7 @@ public class SSHServer {
 //            BuiltinDHFactories.dhg1));
         sshd.setRandomFactory(new SingletonRandomFactory(new JceRandomFactory()));
 
-        sshd.setShellFactory(new SSHProcessFactory(cwd));
+        sshd.setShellFactory(new SSHProcessFactory(log, cwd));
 
         // Set up git + scp command support
         CommandFactory gitCommandFactory = new GitCommandFactory(cwd);
@@ -106,7 +120,7 @@ public class SSHServer {
                     }
                     if (authorizedUsers.containsKey(username)) {
                         String userPublicKey = authorizedUsers.get(username);
-                        logger.fine(" ---- Authentication request for: " + username + " with key: " + incomingHex + " user's public key is: " + userPublicKey);
+                        log.fine(" ---- Authentication request for: " + username + " with key: " + incomingHex + " user's public key is: " + userPublicKey);
                         if (userPublicKey != null && userPublicKey.contains(" ")) {
                             userPublicKey = userPublicKey.split("\\s")[1];
                         }
@@ -133,6 +147,10 @@ public class SSHServer {
 
         sshd.setTcpipForwardingFilter(AcceptAllForwardingFilter.INSTANCE);
         PropertyResolverUtils.updateProperty(sshd, "welcome-banner", "Welcome to SSHD\n");
+
+        if (logAll) {
+            log.setLevel(Level.FINEST);
+        }
     }
 
     public void start() throws IOException {
@@ -156,14 +174,19 @@ public class SSHServer {
 
         @Override
         public Command createCommand(String command) {
-            logger.fine("Incoming command: " + command);
+            log.fine("Incoming command: " + command);
             List<String> cmd = new ArrayList<>(Arrays.asList(command.split(" ")));
             for (int i = 0; i < cmd.size(); i++) {
                 String part = cmd.get(i);
                 part = part.replaceAll("[']", "");
                 cmd.set(i, part);
             }
-            return new SSHProcessFactory(cwd, cmd).create();
+            String main = cmd.iterator().next();
+            if ("git-receive-pack".equals(main))
+                return new ReceivePackCommand(cmd);
+            if ("git-upload-pack".equals(main))
+                return new UploadPackCommand(cmd);
+            return new SSHProcessFactory(log, cwd, cmd).create();
         }
     }
 
