@@ -1,6 +1,5 @@
 package io.jenkins.blueocean.test.ssh;
 
-import io.jenkins.blueocean.test.ssh.command.AsynchronousCommand;
 import org.apache.sshd.common.channel.PtyMode;
 import org.apache.sshd.common.util.GenericUtils;
 import org.apache.sshd.common.util.OsUtils;
@@ -18,9 +17,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +54,7 @@ class SSHShell implements InvertedShell, ServerSessionHolder {
         ValidateUtils.checkTrue(this.process == null, "Session set after process started");
     }
 
+    @SuppressWarnings("unchecked")
     public void start(final Environment env) throws IOException {
         Map<String, String> varsMap = this.resolveShellEnvironment(env.getEnv());
 

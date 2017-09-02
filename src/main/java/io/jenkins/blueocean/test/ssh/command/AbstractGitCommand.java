@@ -14,15 +14,14 @@ import java.util.List;
  * @author Kohsuke Kawaguchi
  */
 abstract class AbstractGitCommand extends AsynchronousCommand {
-    protected final String repoName;
+    private final String repoName;
 
     AbstractGitCommand(List<String> cmd) {
         super(cmd);
         this.repoName = cmd.get(1);
     }
 
-    protected Repository getRepository() throws IOException {
-        Repository r = new RepositoryBuilder().setGitDir(new File(repoName)).build();
-        return r;
+    Repository getRepository() throws IOException {
+        return new RepositoryBuilder().setGitDir(new File(repoName)).build();
     }
 }

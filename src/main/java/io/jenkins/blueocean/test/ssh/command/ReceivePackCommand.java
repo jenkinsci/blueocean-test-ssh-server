@@ -2,7 +2,6 @@ package io.jenkins.blueocean.test.ssh.command;
 
 import org.eclipse.jgit.transport.ReceivePack;
 
-import java.io.File;
 import java.util.List;
 
 /**

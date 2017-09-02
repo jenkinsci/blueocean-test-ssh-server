@@ -2,28 +2,20 @@ package io.jenkins.blueocean.test.ssh;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.KeyPair;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
-import org.apache.sshd.common.config.keys.KeyUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
-import java.util.Vector;
 
 public class TestSSHServer {
     @Test
@@ -65,17 +57,15 @@ public class TestSSHServer {
             }
 
             ChannelExec channelExec = (ChannelExec)session.openChannel("exec");
-            InputStream in = channelExec.getInputStream();
 
-            try {
+            try (InputStream in = channelExec.getInputStream()) {
                 channelExec.setCommand("cat test.txt");
                 channelExec.connect();
 
                 byte[] out = new byte[9];
-                in.read(out);
+                Assert.assertTrue(9 == in.read(out));
                 Assert.assertEquals("some-text", new String(out, "utf-8"));
             } finally {
-                in.close();
                 channelExec.disconnect();
             }
         } finally {

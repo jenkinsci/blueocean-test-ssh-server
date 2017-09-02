@@ -3,8 +3,6 @@ package io.jenkins.blueocean.test.ssh.command;
 import org.apache.sshd.server.Command;
 import org.apache.sshd.server.Environment;
 import org.apache.sshd.server.ExitCallback;
-import org.apache.sshd.server.SessionAware;
-import org.apache.sshd.server.session.ServerSession;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,17 +12,15 @@ import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.util.List;
 
-public abstract class AsynchronousCommand implements Command, SessionAware {
-    protected List<String> cmd;
-    protected InputStream in;
-    protected OutputStream out;
-    protected OutputStream err;
+abstract class AsynchronousCommand implements Command {
+    private final List<String> cmd;
+    private InputStream in;
+    private OutputStream out;
+    private OutputStream err;
     private ExitCallback callback;
     private Thread thread;
-    private ServerSession session;
-    private Environment environment;
 
-    protected AsynchronousCommand(List<String> cmd) {
+    AsynchronousCommand(List<String> cmd) {
         this.cmd = cmd;
     }
 
@@ -40,15 +36,15 @@ public abstract class AsynchronousCommand implements Command, SessionAware {
         this.err = err;
     }
 
-    public InputStream getInputStream() {
+    InputStream getInputStream() {
         return this.in;
     }
 
-    public OutputStream getOutputStream() {
+    OutputStream getOutputStream() {
         return this.out;
     }
 
-    public OutputStream getErrorStream() {
+    OutputStream getErrorStream() {
         return this.err;
     }
 
@@ -56,20 +52,7 @@ public abstract class AsynchronousCommand implements Command, SessionAware {
         this.callback = callback;
     }
 
-    public ServerSession getSession() {
-        return this.session;
-    }
-
-    public void setSession(ServerSession session) {
-        this.session = session;
-    }
-
-    public Environment getEnvironment() {
-        return this.environment;
-    }
-
     public void start(Environment env) throws IOException {
-        this.environment = env;
         this.thread = new Thread(new Runnable() {
             public void run() {
                 try {
@@ -95,6 +78,7 @@ public abstract class AsynchronousCommand implements Command, SessionAware {
         this.thread.start();
     }
 
+    @SuppressWarnings("SameReturnValue")
     protected abstract int run() throws Exception;
 
     public void destroy() {

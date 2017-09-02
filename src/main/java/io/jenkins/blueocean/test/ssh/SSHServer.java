@@ -23,7 +23,6 @@ import org.apache.sshd.server.keyprovider.AbstractGeneratorHostKeyProvider;
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider;
 import org.apache.sshd.server.scp.ScpCommandFactory;
 import org.apache.sshd.server.session.ServerSession;
-import org.apache.sshd.server.shell.InvertedShellWrapper;
 import org.apache.sshd.server.subsystem.sftp.SftpSubsystemFactory;
 
 import java.io.ByteArrayOutputStream;
@@ -57,18 +56,16 @@ public class SSHServer {
      * @param authorizedUsers a list of username -&gt; ssh public keys to allow
      */
     public SSHServer(final File cwd, final Map<String, String> authorizedUsers) {
-        this(cwd, null, 0, false, authorizedUsers);
+        this(cwd, null, authorizedUsers);
     }
 
     /**
      * @param cwd             directory to use as root for serving files
      * @param keyFile         an RSA private key file, or null to generate a new one
-     * @param port            port to run the ssh server on, 0 to
-     * @param allowLocalUser  allows the local user based on ~/.ssh/id_rsa.pub
      * @param authorizedUsers a list of username -&gt; ssh public keys to allow
      */
-    public SSHServer(final File cwd, final File keyFile, final int port, final boolean allowLocalUser, final Map<String, String> authorizedUsers) {
-        this(cwd, keyFile, port, allowLocalUser, authorizedUsers, false);
+    private SSHServer(final File cwd, final File keyFile, final Map<String, String> authorizedUsers) {
+        this(cwd, keyFile, 0, false, authorizedUsers, false);
     }
 
         /**
